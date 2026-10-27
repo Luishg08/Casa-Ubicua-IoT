@@ -1,4 +1,4 @@
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer } from "@react-three/drei";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -28,6 +28,7 @@ function Geo({ part }: { part: Part }) {
 function ProductSlot({
   device,
   position,
+  scale = 1,
   selected,
   locked,
   reveal,
@@ -37,6 +38,7 @@ function ProductSlot({
 }: {
   device: Device;
   position: [number, number, number];
+  scale?: number;
   selected: boolean;
   locked: boolean;
   reveal: boolean;
@@ -48,7 +50,7 @@ function ProductSlot({
   const [hover, setHover] = useState(false);
   const mats = useRef<THREE.MeshStandardMaterial[]>([]);
 
-  useFrame((s, dt) => {
+  useFrame((_s, dt) => {
     if (!g.current) return;
     const k = 1 - Math.exp(-10 * Math.min(dt, 0.05));
     const target = hover && !locked ? 1.15 : selected ? 1.1 : 1;
@@ -86,12 +88,11 @@ function ProductSlot({
         : palette.wood;
 
   return (
-    <group position={position}>
+    <group position={position} scale={scale}>
       <mesh position={[0, 0.08, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[0.55, 0.62, 0.16, 24]} />
         <meshStandardMaterial color={palette.wood} roughness={0.55} />
       </mesh>
-      {/* Anillo fino de selección (evita el outline gigante de Outlines) */}
       {(hover || selected || reveal) && (
         <mesh position={[0, 0.17, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.48, 0.58, 32]} />
@@ -123,12 +124,7 @@ function ProductSlot({
         }}
       >
         {device.parts.map((p, i) => (
-          <mesh
-            key={i}
-            position={p.p ?? [0, 0, 0]}
-            rotation={p.r ?? [0, 0, 0]}
-            castShadow
-          >
+          <mesh key={i} position={p.p ?? [0, 0, 0]} rotation={p.r ?? [0, 0, 0]} castShadow>
             <Geo part={p} />
             <meshStandardMaterial
               ref={(m) => {
@@ -148,14 +144,16 @@ function ProductSlot({
   );
 }
 
-function Customer({ palette }: { palette: ScenePalette }) {
+function Customer({ palette, compact }: { palette: ScenePalette; compact: boolean }) {
   const g = useRef<THREE.Group>(null);
   useFrame((s) => {
     if (!g.current) return;
     g.current.position.y = Math.sin(s.clock.elapsedTime * 2) * 0.04;
   });
+  const z = compact ? 1.55 : 2.4;
+  const s = compact ? 0.82 : 1;
   return (
-    <group ref={g} position={[0, 0, 2.4]}>
+    <group ref={g} position={[0, 0, z]} scale={s}>
       <mesh position={[0, 0.55, 0]} castShadow>
         <capsuleGeometry args={[0.28, 0.7, 6, 12]} />
         <meshStandardMaterial color={palette.coral} roughness={0.5} />
@@ -168,10 +166,12 @@ function Customer({ palette }: { palette: ScenePalette }) {
   );
 }
 
-function ShopRoom({ palette }: { palette: ScenePalette }) {
+function ShopRoom({ palette, compact }: { palette: ScenePalette; compact: boolean }) {
+  const counterW = compact ? 4.2 : 7.2;
+  const shelfW = compact ? 4.6 : 9;
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, 0, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[14, 10]} />
         <meshStandardMaterial color={palette.tile} roughness={0.85} />
       </mesh>
@@ -179,48 +179,75 @@ function ShopRoom({ palette }: { palette: ScenePalette }) {
         <boxGeometry args={[12, 4.4, 0.25]} />
         <meshStandardMaterial color={palette.wall} roughness={0.9} />
       </mesh>
-      {/* Estantería decorativa */}
       <mesh position={[0, 1.6, -2.95]} castShadow>
-        <boxGeometry args={[9, 0.12, 0.5]} />
+        <boxGeometry args={[shelfW, 0.12, 0.5]} />
         <meshStandardMaterial color={palette.wood} />
       </mesh>
       <mesh position={[0, 0.9, -2.95]} castShadow>
-        <boxGeometry args={[9, 0.12, 0.5]} />
+        <boxGeometry args={[shelfW, 0.12, 0.5]} />
         <meshStandardMaterial color={palette.wood} />
       </mesh>
-      {/* Mostrador */}
       <mesh position={[0, 0.45, 0.2]} castShadow receiveShadow>
-        <boxGeometry args={[7.2, 0.9, 1.4]} />
+        <boxGeometry args={[counterW, 0.9, 1.4]} />
         <meshStandardMaterial color={palette["wood-dark"]} roughness={0.5} />
       </mesh>
       <mesh position={[0, 0.95, 0.2]} castShadow>
-        <boxGeometry args={[7.4, 0.08, 1.55]} />
+        <boxGeometry args={[counterW + 0.2, 0.08, 1.55]} />
         <meshStandardMaterial color={palette.wood} roughness={0.4} />
       </mesh>
     </group>
   );
 }
 
-const SLOT_X = [-2.4, -0.8, 0.8, 2.4] as const;
+/** Fila en desktop; 2×2 en móvil para que quepan en portrait. */
+const SLOTS_DESKTOP: [number, number, number][] = [
+  [-2.4, 1.0, 0.15],
+  [-0.8, 1.0, 0.15],
+  [0.8, 1.0, 0.15],
+  [2.4, 1.0, 0.15],
+];
+const SLOTS_MOBILE: [number, number, number][] = [
+  [-0.95, 1.0, -0.15],
+  [0.95, 1.0, -0.15],
+  [-0.95, 1.0, 0.85],
+  [0.95, 1.0, 0.85],
+];
 
-export default function ShopScene({
+function ResponsiveShopCamera({ compact }: { compact: boolean }) {
+  const { camera, size } = useThree();
+  useEffect(() => {
+    const cam = camera as THREE.PerspectiveCamera;
+    if (compact) {
+      cam.fov = size.width < 400 ? 48 : 44;
+      cam.position.set(0, 5.6, 6.2);
+      cam.lookAt(0, 1.05, 0.2);
+    } else {
+      cam.fov = 42;
+      cam.position.set(0, 4.2, 7.5);
+      cam.lookAt(0, 1.1, 0);
+    }
+    cam.updateProjectionMatrix();
+  }, [camera, compact, size.width]);
+  return null;
+}
+
+function ShopWorld({
   round,
   locked,
   choiceId,
   onChoose,
+  palette,
 }: {
   round: ShopRound;
   locked: boolean;
   choiceId: string | null;
   onChoose: (optionId: string) => void;
+  palette: ScenePalette;
 }) {
-  const [palette, setPalette] = useState<ScenePalette | null>(null);
-  useEffect(() => {
-    setPalette(readScenePalette());
-    return () => {
-      document.body.style.cursor = "auto";
-    };
-  }, []);
+  const { size } = useThree();
+  const compact = size.width < 720;
+  const slots = compact ? SLOTS_MOBILE : SLOTS_DESKTOP;
+  const productScale = compact ? 0.78 : 1;
 
   const products = useMemo(
     () =>
@@ -231,35 +258,79 @@ export default function ShopScene({
     [round],
   );
 
+  return (
+    <>
+      <ResponsiveShopCamera compact={compact} />
+      <ShopRoom palette={palette} compact={compact} />
+      <Customer palette={palette} compact={compact} />
+      {products.map(({ opt, device }, i) =>
+        device ? (
+          <ProductSlot
+            key={`${round.id}-${opt.id}`}
+            device={device}
+            position={slots[i] ?? SLOTS_DESKTOP[0]!}
+            scale={productScale}
+            selected={choiceId === opt.id}
+            locked={locked}
+            reveal={locked && choiceId !== null}
+            correct={opt.id === round.correcta}
+            palette={palette}
+            onChoose={() => onChoose(opt.id)}
+          />
+        ) : null,
+      )}
+      <ContactShadows position={[0, 0.02, 0]} opacity={0.28} scale={compact ? 10 : 14} blur={2.2} far={4} />
+    </>
+  );
+}
+
+export default function ShopScene({
+  round,
+  locked,
+  choiceId,
+  onChoose,
+  /** En móvil la escena vive solo en la franja superior. */
+  band = false,
+}: {
+  round: ShopRound;
+  locked: boolean;
+  choiceId: string | null;
+  onChoose: (optionId: string) => void;
+  band?: boolean;
+}) {
+  const [palette, setPalette] = useState<ScenePalette | null>(null);
+  useEffect(() => {
+    setPalette(readScenePalette());
+    return () => {
+      document.body.style.cursor = "auto";
+    };
+  }, []);
+
   if (!palette) return null;
 
   return (
-    <div className="absolute inset-0 touch-none" data-shop-scene>
-      <Canvas shadows camera={{ position: [0, 4.2, 7.5], fov: 42 }} dpr={[1, 1.6]}>
+    <div
+      className={
+        band
+          ? "absolute inset-x-0 top-0 z-0 h-[min(42dvh,20rem)] touch-none sm:inset-0 sm:h-auto"
+          : "absolute inset-0 touch-none"
+      }
+      data-shop-scene
+    >
+      <Canvas shadows camera={{ position: [0, 4.2, 7.5], fov: 42 }} dpr={[1, 1.5]}>
         <color attach="background" args={[palette.sky]} />
         <ambientLight intensity={0.75} />
         <directionalLight position={[4, 10, 5]} intensity={1.35} castShadow shadow-mapSize={[1024, 1024]} />
         <Environment>
           <Lightformer intensity={1.2} position={[0, 5, 0]} scale={[10, 10, 1]} rotation-x={Math.PI / 2} />
         </Environment>
-        <ShopRoom palette={palette} />
-        <Customer palette={palette} />
-        {products.map(({ opt, device }, i) =>
-          device ? (
-            <ProductSlot
-              key={`${round.id}-${opt.id}`}
-              device={device}
-              position={[SLOT_X[i]!, 1.0, 0.15]}
-              selected={choiceId === opt.id}
-              locked={locked}
-              reveal={locked && choiceId !== null}
-              correct={opt.id === round.correcta}
-              palette={palette}
-              onChoose={() => onChoose(opt.id)}
-            />
-          ) : null,
-        )}
-        <ContactShadows position={[0, 0.02, 0]} opacity={0.28} scale={14} blur={2.2} far={4} />
+        <ShopWorld
+          round={round}
+          locked={locked}
+          choiceId={choiceId}
+          onChoose={onChoose}
+          palette={palette}
+        />
       </Canvas>
     </div>
   );

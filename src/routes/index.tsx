@@ -43,11 +43,17 @@ function Game() {
       {showHouse && <HouseScene selected={selected} onToggle={toggle} locked={phase !== "play"} />}
       {inShop && round && (
         <ShopScene
+          band={phase === "shop"}
           round={round}
           locked={phase !== "shop" || shopPending !== null}
           choiceId={shopPending?.choiceId ?? null}
           onChoose={(optionId) => dispatch({ type: "shopChoose", optionId })}
         />
+      )}
+
+      {/* Fondo móvil solo bajo la franja 3D (no la tapa) */}
+      {phase === "shop" && (
+        <div className="absolute inset-x-0 bottom-0 top-[min(42dvh,20rem)] z-0 bg-background sm:hidden" aria-hidden />
       )}
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 p-2 sm:gap-3 sm:p-4 md:p-6">
@@ -79,10 +85,10 @@ function Game() {
             </div>
           )}
           {phase === "shop" && (
-            <div className="panel px-3 py-2 text-left sm:px-5 sm:py-3 sm:text-right">
-              <p className="truncate text-[10px] text-muted-foreground sm:text-xs">{student}</p>
-              <p className="font-display text-lg font-semibold sm:text-xl">
-                Cliente {shopRound + 1}/{SHOP_ROUNDS.length}
+            <div className="panel px-2.5 py-1.5 text-left sm:px-5 sm:py-3 sm:text-right">
+              <p className="truncate text-[10px] text-muted-foreground sm:max-w-40 sm:text-xs" title={student}>{student}</p>
+              <p className="font-display text-base font-semibold sm:text-xl">
+                {shopRound + 1}/{SHOP_ROUNDS.length}
               </p>
             </div>
           )}
@@ -102,41 +108,46 @@ function Game() {
       )}
 
       {phase === "shop" && round && !shopPending && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-2 sm:p-4">
-          <div className="panel pointer-events-auto mx-auto w-full max-w-3xl p-3 sm:p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary sm:text-xs">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex max-h-[58dvh] flex-col p-0 sm:max-h-none sm:p-4">
+          <div className="panel pointer-events-auto mx-auto flex w-full max-w-3xl min-h-0 flex-col rounded-b-none border-b-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:rounded-xl sm:border sm:p-4 sm:pb-4">
+            <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary sm:text-xs">
               Cliente · {round.cliente}
             </p>
-            <p className="mt-1 text-sm leading-snug sm:text-base">“{round.pedido}”</p>
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <p className="mt-1 max-h-[4.5rem] overflow-y-auto text-[13px] leading-snug sm:max-h-none sm:text-base">
+              “{round.pedido}”
+            </p>
+            <div className="mt-3 grid min-h-0 grid-cols-2 gap-2 overflow-y-auto">
               {round.opciones.map((opt) => (
                 <Button
                   key={opt.id}
                   variant="outline"
-                  className="h-auto justify-start whitespace-normal px-3 py-2.5 text-left text-sm"
+                  className="h-auto min-h-11 justify-start whitespace-normal px-2.5 py-2 text-left text-xs leading-snug sm:min-h-0 sm:px-3 sm:py-2.5 sm:text-sm"
                   onClick={() => dispatch({ type: "shopChoose", optionId: opt.id })}
                 >
                   {opt.label}
                 </Button>
               ))}
             </div>
-            <p className="mt-2 text-[11px] text-muted-foreground sm:text-xs">
+            <p className="mt-2 hidden text-[11px] text-muted-foreground sm:block sm:text-xs">
               Elige en la vitrina o en los botones · El cliente no dijo el nombre del aparato.
+            </p>
+            <p className="mt-2 text-[10px] text-muted-foreground sm:hidden">
+              Toca un botón o un objeto de la vitrina.
             </p>
           </div>
         </div>
       )}
 
       {phase === "shop" && round && shopPending && (
-        <div className="absolute inset-0 z-20 flex items-end justify-center bg-foreground/25 p-3 backdrop-blur-[2px] sm:items-center sm:p-4">
-          <div className="panel w-full max-w-lg p-4 sm:p-6 animate-in fade-in zoom-in-95">
+        <div className="absolute inset-0 z-20 flex items-end justify-center bg-foreground/25 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
+          <div className="panel w-full max-w-lg rounded-b-none border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:rounded-xl sm:border sm:p-6 animate-in fade-in zoom-in-95">
             <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${shopPending.ok ? "text-success" : "text-destructive"}`}>
               {shopPending.ok ? "Entrega correcta" : "Entrega incorrecta"}
             </p>
-            <h3 className="mt-1 font-display text-xl font-semibold sm:text-2xl">
+            <h3 className="mt-1 break-words font-display text-xl font-semibold sm:text-2xl">
               {round.opciones.find((o) => o.id === shopPending.choiceId)?.label}
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">{round.porque}</p>
+            <p className="mt-2 max-h-[30dvh] overflow-y-auto text-sm text-muted-foreground sm:max-h-none">{round.porque}</p>
             <Button className="mt-4 h-11 w-full text-base font-semibold" onClick={() => dispatch({ type: "shopNext" })}>
               {shopRound + 1 >= SHOP_ROUNDS.length ? "Ver calificaciones" : "Siguiente cliente"}
             </Button>
