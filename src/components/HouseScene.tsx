@@ -25,7 +25,16 @@ function Geo({ part }: { part: Part }) {
   }
 }
 
-function DeviceObj({ d, selected, onToggle, locked, palette }: { d: Device; selected: boolean; onToggle: () => void; locked: boolean; palette: ScenePalette }) {
+function DeviceObj({
+  d, selected, onToggle, locked, palette, onFocus,
+}: {
+  d: Device;
+  selected: boolean;
+  onToggle: () => void;
+  locked: boolean;
+  palette: ScenePalette;
+  onFocus: (d: Device | null) => void;
+}) {
   const g = useRef<THREE.Group>(null);
   const [hover, setHover] = useState(false);
   const mats = useRef<THREE.MeshStandardMaterial[]>([]);
@@ -89,15 +98,28 @@ function DeviceObj({ d, selected, onToggle, locked, palette }: { d: Device; sele
     }
   });
 
-  const showLabel = hover || selected;
-
   return (
     <group
       ref={g}
       position={d.pos}
-      onPointerOver={(e) => { e.stopPropagation(); setHover(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={() => { setHover(false); document.body.style.cursor = "auto"; }}
-      onClick={(e) => { e.stopPropagation(); if (!locked) onToggle(); }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHover(true);
+        onFocus(d);
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={() => {
+        setHover(false);
+        onFocus(null);
+        document.body.style.cursor = "auto";
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!locked) {
+          onToggle();
+          onFocus(d);
+        }
+      }}
     >
       {/* Hitbox transparente: R3F ignora visible=false; hace clicables objetos altos/finos */}
       <mesh position={hitCenter}>
@@ -132,18 +154,10 @@ function DeviceObj({ d, selected, onToggle, locked, palette }: { d: Device; sele
 
       {selected && (
         <Billboard position={[0, badgeY, 0]}>
-          <Html center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }} distanceFactor={12}>
+          <Html center occlude={false} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }} distanceFactor={12}>
             <div className="pick-badge" aria-hidden>✓</div>
           </Html>
         </Billboard>
-      )}
-
-      {showLabel && (
-        <Html zIndexRange={[15, 0]} position={[0, badgeY + (selected ? 0.55 : 0.2), 0]} center distanceFactor={12} style={{ pointerEvents: "none" }}>
-          <div className="panel max-w-[12rem] px-2.5 py-1.5 text-center text-xs font-semibold text-foreground sm:max-w-none sm:whitespace-nowrap sm:px-3 sm:text-sm">
-            {d.nombre}{selected ? " · marcado" : ""}
-          </div>
-        </Html>
       )}
     </group>
   );
@@ -299,7 +313,16 @@ function PanLimitedControls() {
 
 export default function HouseScene({ selected, onToggle, locked }: { selected: Set<string>; onToggle: (id: string) => void; locked: boolean }) {
   const [palette, setPalette] = useState<ScenePalette | null>(null);
+  // Último dispositivo mirado/clicado: no se borra al salir del hover (el cartel 3D en esquinas fallaba)
+  const [focus, setFocus] = useState<Device | null>(null);
   useEffect(() => { setPalette(readScenePalette()); return () => { document.body.style.cursor = "auto"; }; }, []);
+
+  const pinFocus = (d: Device | null) => {
+    if (d) setFocus(d);
+  };
+
+  const labelSelected = focus ? selected.has(focus.id) : false;
+
   if (!palette) return null;
   return (
     <div className="absolute inset-0 touch-none" data-house-scene>
@@ -315,11 +338,30 @@ export default function HouseScene({ selected, onToggle, locked }: { selected: S
         </Environment>
         <House locked={locked} palette={palette} />
         {DEVICES.map((d) => (
-          <DeviceObj key={d.id} d={d} selected={selected.has(d.id)} onToggle={() => onToggle(d.id)} locked={locked} palette={palette} />
+          <DeviceObj
+            key={d.id}
+            d={d}
+            selected={selected.has(d.id)}
+            onToggle={() => onToggle(d.id)}
+            locked={locked}
+            palette={palette}
+            onFocus={pinFocus}
+          />
         ))}
         <ContactShadows position={[0, 0.01, 0]} opacity={0.3} scale={22} blur={2} far={4} />
         <PanLimitedControls />
       </Canvas>
+
+      {focus && !locked && (
+        <div className="pointer-events-none absolute bottom-16 left-1/2 z-20 w-[min(92vw,28rem)] -translate-x-1/2 sm:bottom-20">
+          <div className={`panel px-4 py-3 text-center shadow-lg ${labelSelected ? "ring-2 ring-[oklch(0.72_0.19_55)]" : ""}`}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary sm:text-xs">
+              {focus.cuarto}{labelSelected ? " · marcado" : " · pasa el cursor o toca"}
+            </p>
+            <p className="mt-0.5 font-display text-lg font-semibold leading-tight sm:text-xl">{focus.nombre}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -55,12 +55,12 @@ export const DEVICES: Device[] = [
     porque: "Envía un pulso infrarrojo de una sola vía. No está conectado a una red ni recolecta información del entorno.",
   },
   {
-    id: "lampara", nombre: "Lámpara de pie convencional", ubicuo: false, cuarto: "Sala", pos: [-9.0, 0, 6.2],
+    // Alejada de la esquina: el cartel 3D quedaba tapado por los muros
+    id: "lampara", nombre: "Lámpara de pie convencional", ubicuo: false, cuarto: "Sala", pos: [-8.0, 0, 5.2],
     parts: [
-      { s: "cyl", a: [0.3, 0.35, 0.08, 20], p: [0, 0.05, 0], c: "wood" },
-      { s: "cyl", a: [0.04, 0.04, 2, 8], p: [0, 1.05, 0], c: "wood" },
-      // Pantalla cerrada (openEnded lo maneja Geo); radio un poco mayor para que se vea y se pueda tocar
-      { s: "cone", a: [0.55, 0.7, 24, 1], p: [0, 2.15, 0], c: "wood" },
+      { s: "cyl", a: [0.32, 0.38, 0.1, 20], p: [0, 0.05, 0], c: "wood" },
+      { s: "cyl", a: [0.05, 0.05, 1.9, 10], p: [0, 1.0, 0], c: "wood" },
+      { s: "cone", a: [0.6, 0.75, 24, 1], p: [0, 2.05, 0], c: "yellow" },
     ],
     porque: "Se prende con un interruptor manual. No tiene sensores ni conectividad.",
   },
